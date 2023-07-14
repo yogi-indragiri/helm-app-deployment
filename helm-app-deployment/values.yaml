@@ -78,7 +78,7 @@ ingress:
 hpa:
   enabled: false
 config:
-  KUBERNETES_REPLICAS: ""
+  #KEY: ""
 cron:
   enabled: false
   schedule: "* * * * *"
