@@ -1,0 +1,34 @@
+{{- if .Values.cron.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ template "application.name" . }}
+  namespace: {{ .Values.deployment.namespace }}
+  labels:
+{{- if .Values.labels }}
+{{ toYaml .Values.labels | indent 4 }}
+{{- end }}
+    app: {{ template "application.name" . }}
+    chart: {{ template "application.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  schedule: {{ .Values.cron.schedule | quote }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: {{ template "application.name" . }}
+            image: {{ if (.Values.image.path) }} "{{ .Values.image.path }}:{{ .Values.image.tag }}" {{else}} "{{ .Values.image.repository }}/{{ .Values.image.bucketName }}:{{ .Values.image.tag }}" {{end}}
+            resources:
+{{ toYaml .Values.resources | indent 12 }}
+            args:
+            {{- range .Values.cron.entryPoint }}
+            - {{ . }}
+            {{- end }}
+            envFrom:
+            - configMapRef:
+                name: {{ template "application.name" . }}
+          restartPolicy: OnFailure
+{{- end -}}

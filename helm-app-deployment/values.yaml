@@ -1,0 +1,96 @@
+deployment:
+  apiVersion: "apps/v1"
+  type: "server"
+  namespace: "default"
+  replicas: 2
+  imagePullSecrets:
+    name: image-registry-secret
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  livenessProbe:
+    path: /ping
+    initialDelaySeconds: 5
+    timeoutSeconds: 1
+  readinessProbe:
+    path: /ping
+    initialDelaySeconds: 5
+    timeoutSeconds: 1
+  containerPort: 3000
+  sleepOnPreStopEnabled: false
+application:
+  entryPoint:
+  command:
+  migrationCommand:
+    - bundle
+    - exec
+    - rake
+    - db:migrate
+job:
+  enabled: false
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+configmap:
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+image:
+  repository: repository_address
+  bucketName: sample_app
+  path: ""
+  tag: 1.0.0
+  pullPolicy: IfNotPresent
+resources:
+  limits:
+    cpu: 4000m
+    memory: 16Gi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+nodeSelector: {}
+tolerations: []
+affinity: {}
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: http
+  portName: http
+  annotations: {}
+ingress:
+  apiVersion: "networking.k8s.io/v1"
+  enabled: false
+  className: nginx
+  path:
+    name: "/"
+    enabled: false
+  hostName: test-apps.com
+  additionalHostNames: []
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  tls:
+    enabled: false
+    secretName: example.com
+hpa:
+  enabled: false
+config:
+  KUBERNETES_REPLICAS: ""
+cron:
+  enabled: false
+  schedule: "* * * * *"
+  entryPoint:
+    - bundle
+    - exec
+    - rake
+    - namespace:task
+pdb:
+  enabled: false
+  minAvailableReplica: 3
+volumeMounts: []
+volumes: []
+labels: {}
+dnsPolicy: ClusterFirst
