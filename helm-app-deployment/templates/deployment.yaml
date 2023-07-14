@@ -91,7 +91,6 @@ spec:
         {{- end}}
         resources:
 {{ toYaml .Values.resources | indent 12 }}
-{{- end -}}
 {{- if .Values.deployment.sidecars }}
 {{ toYaml .Values.deployment.sidecars | indent 6 }}
 {{- end -}}
