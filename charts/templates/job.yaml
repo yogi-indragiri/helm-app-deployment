@@ -1,0 +1,57 @@
+{{- if .Values.job.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "application.fullname" . }}
+  namespace: {{ .Values.deployment.namespace }}
+  labels:
+{{- if .Values.labels }}
+{{ toYaml .Values.labels | indent 4 }}
+{{- end }}
+    app: {{ template "application.name" . }}
+    chart: {{ template "application.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+  {{- if .Values.job.annotations }}
+  annotations:
+{{ toYaml .Values.job.annotations | indent 4 }}
+  {{- end }}
+spec:
+  template:
+    metadata:
+      labels:
+        app: {{ template "application.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      restartPolicy: Never
+      containers:
+      - command:
+          {{- range .Values.application.migrationEntrypointCommand }}
+          - {{ . }}
+          {{- end }}
+        args:
+          {{- range .Values.application.migrationCommand }}
+          - {{ . }}
+          {{- end }}
+        envFrom:
+        - configMapRef:
+            name: {{ template "application.name" . }}
+        name: {{ template "application.name" . }}
+        image: {{ if (.Values.image.path) }} "{{ .Values.image.path }}:{{ .Values.image.tag }}" {{else}} "{{ .Values.image.repository }}/{{ .Values.image.bucketName }}:{{ .Values.image.tag }}" {{end}}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        resources:
+{{ toYaml .Values.resources | indent 12 }}
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+
+{{- end }}

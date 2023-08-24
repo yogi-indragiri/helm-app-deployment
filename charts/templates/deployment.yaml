@@ -1,0 +1,124 @@
+apiVersion: {{ .Values.deployment.apiVersion }}
+kind: Deployment
+metadata:
+  name: {{ template "application.name" . }}
+  namespace: {{ .Values.deployment.namespace }}
+  labels:
+{{- if .Values.labels }}
+{{ toYaml .Values.labels | indent 4 }}
+{{- end }}
+    app: {{ template "application.name" . }}
+    chart: {{ template "application.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: !!int {{ if (.Values.config.KUBERNETES_REPLICAS) }} {{ .Values.config.KUBERNETES_REPLICAS }} {{else}}{{ .Values.deployment.replicas }}{{end}}
+  strategy:
+    rollingUpdate:
+      maxUnavailable: {{ .Values.deployment.strategy.rollingUpdate.maxUnavailable}}
+      maxSurge : {{ .Values.deployment.strategy.rollingUpdate.maxSurge}}
+    type: {{ .Values.deployment.strategy.type }}
+  selector:
+    matchLabels:
+      app: {{ template "application.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+{{- if .Values.labels }}
+{{ toYaml .Values.labels | indent 8 }}
+{{- end }}
+        app: {{ template "application.name" . }}
+        release: {{ .Release.Name }}
+      annotations:
+{{- if .Values.deployment.annotations }}
+{{ toYaml .Values.deployment.annotations | indent 8 }}
+{{- end }}
+    spec:
+      imagePullSecrets:
+        - name: {{ .Values.deployment.imagePullSecrets.name }}
+      containers:
+      - args:
+          {{- range .Values.application.entryPoint }}
+          - {{ . }}
+          {{- end }}
+        command:
+          {{- range .Values.application.command }}
+          - {{ . }}
+          {{- end }}
+        envFrom:
+        - configMapRef:
+            name: {{ template "application.name" . }}
+        env:
+          - name: NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+      {{- with .Values.volumeMounts }}
+        volumeMounts:
+{{ toYaml . | indent 12 }}
+      {{- end }}
+        name: {{ template "application.name" . }}
+        image: {{ if (.Values.image.path) }} "{{ .Values.image.path }}:{{ .Values.image.tag }}" {{else}} "{{ .Values.image.repository }}/{{ .Values.image.bucketName }}:{{ .Values.image.tag }}" {{end}}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        {{- if eq .Values.deployment.type "server"}}
+        ports:
+          - name: http
+            containerPort: {{ .Values.deployment.containerPort }}
+            protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.deployment.livenessProbe.path }}
+            port: {{ .Values.deployment.containerPort }}
+          initialDelaySeconds: {{ .Values.deployment.livenessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.deployment.livenessProbe.timeoutSeconds }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.deployment.readinessProbe.path }}
+            port: {{ .Values.deployment.containerPort }}
+          initialDelaySeconds: {{ .Values.deployment.livenessProbe.initialDelaySeconds }}
+          timeoutSeconds: {{ .Values.deployment.livenessProbe.timeoutSeconds }}
+        {{- end}}
+        {{- if .Values.deployment.sleepOnPreStopEnabled }}
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/bash", "-c", "sleep 10"]
+        {{- end}}
+        resources:
+{{ toYaml .Values.resources | indent 12 }}
+{{- if .Values.deployment.sidecars }}
+{{ toYaml .Values.deployment.sidecars | indent 6 }}
+{{- end -}}
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.volumes }}
+      volumes:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+      {{- if hasKey .Values.deployment "terminationGracePeriodSeconds"}}
+      terminationGracePeriodSeconds: {{ .Values.deployment.terminationGracePeriodSeconds }}
+      {{- end}}
+      dnsPolicy: {{ .Values.dnsPolicy }}
+      {{- if hasKey .Values.deployment "nameservers" }}
+      dnsConfig: 
+        nameservers: 
+          {{- range .Values.deployment.nameservers }}
+          - {{ . }}
+          {{- end }}
+      {{- end}}
+

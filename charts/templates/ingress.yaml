@@ -1,0 +1,66 @@
+{{- if eq .Values.deployment.type "server" -}}
+{{- if .Values.ingress.enabled -}}
+{{- $applicationName := include "application.name" . }}
+{{- $servicePort := .Values.service.port }}
+apiVersion: {{ .Values.ingress.apiVersion }}
+kind: Ingress
+metadata:
+  name: {{ $applicationName }}
+  namespace: {{ .Values.deployment.namespace }}
+  labels:
+{{- if .Values.labels }}
+{{ toYaml .Values.labels | indent 4 }}
+{{- end }}
+    app: {{ $applicationName }}
+    chart: {{ template "application.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+  annotations:
+{{ toYaml .Values.ingress.annotations | indent 4 }}
+{{- if not .Values.ingress.path.enabled }}
+spec:
+{{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+{{- end }}
+  rules:
+  - host: {{ .Values.ingress.hostName }}
+    http:
+      paths:
+      - backend:
+          name: {{ $applicationName }}
+          port:
+            name: {{ $servicePort }}
+  {{- range .Values.ingress.additionalHostNames }}
+  - host: {{ . }}
+    http:
+      paths:
+      - backend:
+          name: {{ $applicationName }}
+          port:
+            number: {{ $servicePort }}
+  {{- end }}
+{{- end -}}
+{{- if .Values.ingress.path.enabled }}
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          name: {{ $applicationName }}
+          port:
+            number: {{ $servicePort }}
+        path: {{ .Values.ingress.path.name }}
+        pathType: {{ .Values.ingress.path.type }}
+{{- end -}}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+  - hosts:
+    - {{ .Values.ingress.hostName }}
+    {{- range .Values.ingress.additionalHostNames }}
+    - {{ . }}
+    {{- end }}
+    secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
